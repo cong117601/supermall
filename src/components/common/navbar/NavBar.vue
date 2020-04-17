@@ -16,18 +16,17 @@ export default {
 <style scoped>
   .nav-bar {
     display: flex;
-    line-height: 44px;
     height: 44px;
+    line-height: 44px;
     text-align: center;
-    /* 小阴影 */
-    box-shadow: 0 1px 1px rgba(100, 100,100, .1);
+    box-shadow: 0 1px 1px rgba(100,100,100,.1);
   }
+
   .left, .right {
     width: 60px;
-
   }
+
   .center {
     flex: 1;
-    /* background-color: blue; */
   }
 </style>
