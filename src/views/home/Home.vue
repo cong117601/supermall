@@ -1,24 +1,31 @@
 <template>
-  <div id="home">
+  <div id="home" class="wrapper">
     <nav-bar class="home-nav">
       <div slot="center">购物街</div>
     </nav-bar>
-    <scroll class="content" ref="scroll" 
-            :probe-type="3" 
-            @scroll="contentScroll"
-            :pull-up-load="true"
-            @pullingUp="loadMore"
-            >
-      <home-swiper :banners="banners"/>
-      <home-recommend-view :recommends="recommends"/>
-      <feature-view/>
-      <tab-control class="tav-control" 
-       :titles="['流行','新款','精选']"
-       @tabClick="tabClick"/>
+    <tab-control
+      :titles="['流行','新款','精选']"
+      @tabClick="tabClick"
+      ref="tabControl1"
+      class="tab-controll"
+      v-show="isTabFixed"
+    />
+    <scroll
+      class="content"
+      ref="scroll"
+      :probe-type="3"
+      @scroll="contentScroll"
+      :pull-up-load="true"
+      @pullingUp="loadMore"
+    >
+      <home-swiper :banners="banners" @swiperUploadImg="swiperUploadImg" />
+      <home-recommend-view :recommends="recommends" />
+      <feature-view />
+      <tab-control :titles="['流行','新款','精选']" @tabClick="tabClick" ref="tabControl2" />
       <goods-list :goods="showGoods"></goods-list>
     </scroll>
     <!--监听组件点击 回到顶部  使用native修饰符-->
-    <back-top @click.native="backClick" v-show="isShowBackTop"/>
+    <back-top @click.native="backClick" v-show="isShowBackTop" />
   </div>
 </template>
 
@@ -39,11 +46,12 @@ import FeatureView from "./childComps/FeatureView";
 
 //导入 请求相关
 import { getHomeMultidata, getHomeGoods } from "network/home";
+import { debounce } from "common/utils";
+import { itemListerMixin } from "common/mixin";
 //导入轮播图 (又进行了封装)
 // import {Swiper,SwiperItem} from 'components/common/swiper/index'
 
 export default {
-  
   name: "Home",
   components: {
     NavBar,
@@ -66,7 +74,11 @@ export default {
         sell: { page: 0, list: [] }
       },
       currentType: "pop",
-      isShowBackTop: false
+      isShowBackTop: false,
+      tabOffsetTop: 0,
+      isTabFixed: false,
+      saveY: 0
+    
     };
   },
   computed: {
@@ -76,19 +88,41 @@ export default {
   },
   //创建vue实例后执行的方法
   created() {
+    console.log("home created");
+    
     //1.请求多个数据
     this.getHomeMultidata();
-    //请求商品数据
+    //2.请求商品数据
     this.getHomeGoods("pop");
     this.getHomeGoods("new");
     this.getHomeGoods("sell");
+    //
+    // this.tabClick(0)
+  },
+  mixins: [itemListerMixin],
+  //console.log(this.$refs.tabControl.$el.offsetTop);
+  destroyed() {
+    //console.log("distory");
+  },
+  //活跃时的函数
+  activated() {
+    //console.log("avticed");
+    this.$refs.scroll.scroll2(0, this.saveY, 0);
+    //刷一次好像也会出现
+    this.$refs.scroll.refresh();
+  },
+  //不活跃时的函数
+  deactivated() {
+    //1.保存y值
+    this.saveY = this.$refs.scroll.getScrollY();
+    //2.取消全局事件的监听
+    this.$bus.$off("itemImageLoad", this.itemImageListener);
   },
   methods: {
     /**
      * 事件监听
      */
     tabClick(index) {
-      //console.log(index);
       switch (index) {
         case 0:
           this.currentType = "pop";
@@ -100,27 +134,32 @@ export default {
           this.currentType = "sell";
           break;
       }
+      this.$refs.tabControl1.currentIndex = index;
+      this.$refs.tabControl2.currentIndex = index;
     },
     backClick() {
-      //console.log("aaaaa");
       this.$refs.scroll.scroll2(0, 0);
     },
-    loadMore(){
-     console.log("上拉加载更多");
-     this.getHomeGoods(this.currentType)
-     this.$refs.scroll.scroll.refresh()
+    loadMore() {
+      this.getHomeGoods(this.currentType);
+    },
+    swiperUploadImg() {
+      //console.log(this.$refs.tabControl2.$el.offsetTop);
+      this.tabOffsetTop = this.$refs.tabControl2.$el.offsetTop;
     },
     //获取到scroll中传来的 位置信息
     contentScroll(prosition) {
       //console.log(prosition);
-     this.isShowBackTop = (-prosition.y) > 1000
+      //判断backtop是否显示
+      this.isShowBackTop = -prosition.y > 1000;
+      //判断tabControl是否吸顶(position: fiexd)
+      this.isTabFixed = -prosition.y > this.tabOffsetTop;
     },
     /**
      * 网络请求相关
      */
     getHomeMultidata() {
       getHomeMultidata().then(res => {
-        console.log(res);
         //3.保存在data 的result中
         this.banners = res.data.banner.list; //广告
         this.recommends = res.data.recommend.list; //推荐圆
@@ -132,7 +171,8 @@ export default {
         this.goods[type].list.push(...res.data.list);
         this.goods[type].page += 1;
 
-        this.$refs.scroll.finshPullUp();
+        //完成上拉加载更多
+        this.$refs.scroll.finishPullUp();
       });
     }
   }
@@ -141,7 +181,7 @@ export default {
 
 <style scoped>
 #home {
-  padding-top: 44px;
+  /*padding-top: 44px;*/
   height: 100vh;
   position: relative;
 }
@@ -149,31 +189,26 @@ export default {
 .home-nav {
   background-color: var(--color-tint);
   color: #fff;
-
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 9;
 }
 
-.tav-control {
-  position: sticky;
-  top: 44px;
-  z-index: 9;
-}
 .content {
-  /* height: 300px; */
   overflow: hidden;
+
   position: absolute;
   top: 44px;
   bottom: 49px;
   left: 0;
   right: 0;
 }
-/* .content {
-    height: calc(100% - 93px);
-    overflow: hidden;
-    margin-top: 44px;
-} */
+
+.tab-control {
+  position: relative;
+  z-index: 9;
+}
+
+/*.content {*/
+/*height: calc(100% - 93px);*/
+/*overflow: hidden;*/
+/*margin-top: 44px;*/
+/*}*/
 </style>
