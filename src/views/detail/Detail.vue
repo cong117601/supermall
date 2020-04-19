@@ -12,6 +12,7 @@
     
     </scroll>
     <detail-bottom-bar @addToCat="addToCat"/>
+      <!-- <toast ref="toast"/> -->
     <!--监听组件点击 回到顶部  使用native修饰符-->
     <back-top @click.native="backClick" v-show="isShowBackTop" />
   </div>
@@ -34,6 +35,9 @@ import GoodsList from "components/content/goods/GoodsList";
 import { debounce } from "common/utils";
 import { getDetail, getRecommend, Goods, Shop } from "network/detail";
 import { itemListerMixin } from "common/mixin";
+import {mapActions} from "vuex"
+//  import Toast from 'components/common/toast/Toast'
+
 export default {
   name: "Detail",
   components: {
@@ -47,7 +51,8 @@ export default {
     DetailBottomBar,
     GoodsList,
     BackTop,
-    Scroll
+    Scroll,
+    // Toast
   },
   data() {
     return {
@@ -62,7 +67,8 @@ export default {
       themesTopYs: [],
       getThemesTopY: null,
       currentIndex: 0,
-      isShowBackTop: false
+      isShowBackTop: false,
+  
     };
   },
   created() {
@@ -108,6 +114,7 @@ export default {
   },
   mixins: [itemListerMixin],
   methods: {
+    ...mapActions(['addCart']),
     detailImageLoad() {
       //console.log("detailImageLoad");
       // const refresh = debounce(this.$refs.scroll.refresh, 50);
@@ -161,7 +168,23 @@ export default {
       //this.$store.cartList.push(product)
       //this.$store.commit('addCart',product)  调用mutations
       //调用actions
-      this.$store.dispatch('addCart',product)  
+      this.addCart(product).then(res =>{
+          //  console.log(res);
+          //  this.show = true
+          //  this.message =res
+          //  setTimeout(() =>{
+          //    this.show = false
+          //    this.message = ''
+          //  },1500)
+
+
+          //console.log(this.$toast);
+          this.$toast.show(res,1000)
+      })
+      // this.$store.dispatch('addCart',product).then(res =>{
+      //   console.log(res);
+        //  this.$toast.show(res,2000)
+      // })
     }
 
   },
